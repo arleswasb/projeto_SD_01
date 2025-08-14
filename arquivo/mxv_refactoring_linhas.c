@@ -103,70 +103,46 @@ void multiply_matrix_vector_cols_outer(int rows, int cols, double **A, double *x
     }
 }
 
-// --- Função Principal para o Experimento Final ---
+// --- Função Principal Orquestradora ---
+// Inclua a nova função no seu código e modifique a main assim:
+
 int main() {
-    int n_inicial = 32;
-    int n_final = 2048;
-    int n_passo = 2;
-
+    int M = 2000;
+    int N = 2000;
     double start_time, end_time;
-    double tempo_linhas, tempo_colunas;
-    double fator_lentidao; // <-- 1. Nova variável
 
-    // 2. Cabeçalho do CSV atualizado
-    printf("Tamanho_N,Tempo_Linhas_s,Tempo_Colunas_s,Fator_Lentidao\n");
+    printf("Criando matriz %d x %d e vetores...\n", M, N);
 
-    for (int N = n_inicial; N <= n_final; N *= n_passo) {
-        
-        int M = N;
-        
-        double **A = create_matrix(M, N);
-        double *x = (double *)malloc(N * sizeof(double));
-        double *y = (double *)malloc(M * sizeof(double));
+    double **A = create_matrix(M, N);
+    double *x = (double *)malloc(N * sizeof(double));
+    double *y = (double *)malloc(M * sizeof(double));
 
-        if (A == NULL || x == NULL || y == NULL) {
-            fprintf(stderr, "Falha ao alocar para N=%d\n", N);
-            continue;
-        }
-        
-        for(int i=0; i<M; i++) for(int j=0; j<N; j++) A[i][j] = 1.0;
-        for(int i=0; i<N; i++) x[i] = 1.0;
+    if (A == NULL || x == NULL || y == NULL) { /* ... código de erro ... */ return 1; }
 
-        int repeticoes = 1000;
-        if (N >= 512) repeticoes = 50;
-        if (N >= 1024) repeticoes = 10;
-        if (N >= 2048) repeticoes = 3;
-        
-        // Teste 1: Acesso por Linhas
-        start_time = omp_get_wtime();
-        for(int r = 0; r < repeticoes; r++) {
-            multiply_matrix_vector(M, N, A, x, y);
-        }
-        end_time = omp_get_wtime();
-        tempo_linhas = (end_time - start_time) / repeticoes;
+    fill_random_data(M, N, A, x);
 
-        // Teste 2: Acesso por Colunas
-        start_time = omp_get_wtime();
-        for(int r = 0; r < repeticoes; r++) {
-            multiply_matrix_vector_cols_outer(M, N, A, x, y);
-        }
-        end_time = omp_get_wtime();
-        tempo_colunas = (end_time - start_time) / repeticoes;
+    // --- Teste 1: Acesso por Linhas (Método Rápido) ---
+    printf("\nTestando metodo com acesso por LINHAS (cache-friendly)...\n");
+    start_time = omp_get_wtime();
+    multiply_matrix_vector(M, N, A, x, y); // A nossa função original e paralela
+    end_time = omp_get_wtime();
+    printf("Tempo de execucao: %f segundos\n", end_time - start_time);
+    printf("--------------------------------------------------\n");
 
-        // 3. Calcula o fator, com cuidado para não dividir por zero
-        if (tempo_linhas > 0) {
-            fator_lentidao = tempo_colunas / tempo_linhas;
-        } else {
-            fator_lentidao = 1.0; // Se o tempo base for 0, não há diferença
-        }
+    // --- Teste 2: Acesso por Colunas (Método Lento) ---
+    printf("\nTestando metodo com acesso por COLUNAS (cache-unfriendly)...\n");
+    start_time = omp_get_wtime();
+    multiply_matrix_vector_cols_outer(M, N, A, x, y); // A nossa nova função
+    end_time = omp_get_wtime();
+    printf("Tempo de execucao: %f segundos\n", end_time - start_time);
+    printf("--------------------------------------------------\n");
 
-        // Imprime a linha de dados CSV, agora com 4 colunas
-        printf("%d,%.12f,%.12f,%.3f\n", N, tempo_linhas, tempo_colunas, fator_lentidao);
-
-        free_matrix(M, A);
-        free(x);
-        free(y);
-    }
+    // Liberação da memória...
+    printf("\nLiberando memoria...\n");
+    free_matrix(M, A);
+    free(x);
+    free(y);
+    printf("Memoria liberada com sucesso.\n");
 
     return 0;
 }
