@@ -1,7 +1,7 @@
 #include <omp.h>
 #include <stdio.h>
-#include <stdlib.h> // Necessário para malloc, free e rand
-#include <time.h>   // Necessário para srand
+#include <stdlib.h> 
+#include <time.h>  
 
 // As funções de impressão 
 void print_matrix(int rows, int cols, double **matrix) {
@@ -20,12 +20,8 @@ void print_vector(int size, double *vector) {
     }
 }
 
-/**
- * @brief Aloca dinamicamente uma matriz 2D.
- * @param rows O número de linhas.
- * @param cols O número de colunas.
- * @return Um ponteiro para a matriz alocada, ou NULL se a alocação falhar.
- */
+//Aloca dinamicamente uma matriz 2D.
+
 double **create_matrix(int rows, int cols) {
     // Aloca um array de ponteiros (um para cada linha)
     double **matrix = (double **)malloc(rows * sizeof(double *));
@@ -44,11 +40,8 @@ double **create_matrix(int rows, int cols) {
     return matrix;
 }
 
-/**
- * @brief Libera a memória de uma matriz alocada dinamicamente.
- * @param matrix A matriz a ser liberada.
- * @param rows O número de linhas da matriz.
- */
+// Libera a memória de uma matriz alocada dinamicamente.
+
 void free_matrix(int rows, double **matrix) {
     if (matrix == NULL) return;
     // Primeiro, libera a memória de cada linha
@@ -59,9 +52,8 @@ void free_matrix(int rows, double **matrix) {
     free(matrix);
 }
 
-/**
- * @brief Preenche uma matriz e um vetor com valores aleatórios.
- */
+// Preenche uma matriz e um vetor com valores aleatórios.
+
 void fill_random_data(int rows, int cols, double **matrix, double *vector) {
     // Usa o tempo atual como semente para o gerador de números aleatórios
     srand(time(NULL));
@@ -75,9 +67,8 @@ void fill_random_data(int rows, int cols, double **matrix, double *vector) {
     }
 }
 
-/**
- * @brief Executa a multiplicação de matriz por vetor (y = A * x).
- */
+// Executa a multiplicação de matriz por vetor (y = A * x).
+
 void multiply_matrix_vector(int rows, int cols, double **A, double *x, double *y) {
     for (int i = 0; i < rows; i++) {
         y[i] = 0.0; // Garante que o valor inicial seja zero
@@ -96,8 +87,6 @@ void multiply_matrix_vector_cols_outer(int rows, int cols, double **A, double *x
     for (int j = 0; j < cols; j++) {
         // O laço interno itera sobre as LINHAS (i).
         for (int i = 0; i < rows; i++) {
-            // Para cada elemento da coluna j, sua contribuição é adicionada
-            // ao elemento correspondente do vetor resultado y.
             y[i] += A[i][j] * x[j];
         }
     }
@@ -111,9 +100,9 @@ int main() {
 
     double start_time, end_time;
     double tempo_linhas, tempo_colunas;
-    double fator_lentidao; // <-- 1. Nova variável
+    double fator_lentidao; 
 
-    // 2. Cabeçalho do CSV atualizado
+    // 2. Cabeçalho do CSV
     printf("Tamanho_N,Tempo_Linhas_s,Tempo_Colunas_s,Fator_Lentidao\n");
 
     for (int N = n_inicial; N <= n_final; N *= n_passo) {
@@ -153,7 +142,7 @@ int main() {
         end_time = omp_get_wtime();
         tempo_colunas = (end_time - start_time) / repeticoes;
 
-        // 3. Calcula o fator, com cuidado para não dividir por zero
+        // 3. Calcula o fator de lentidão
         if (tempo_linhas > 0) {
             fator_lentidao = tempo_colunas / tempo_linhas;
         } else {
