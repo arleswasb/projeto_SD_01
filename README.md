@@ -70,8 +70,8 @@ Para gerar os gráficos a partir dos dados, utilize os scripts Python fornecidos
 
 Os resultados do experimento demonstram de forma conclusiva o impacto da arquitetura de cache no desempenho do software.
 
-![Gráfico de Performance](C:\projetos_SD\pj01\padrao de acesso.png)
-![Gráfico de fator de lentidão]C:\projetos_SD\pj01\fator de lentidão.png)
+![Gráfico de Performance](padrao de acesso.png)
+![Gráfico de fator de lentidão](fator de lentidão.png)
 
 -   **Para matrizes pequenas (N ≤ 256):** O desempenho de ambos os métodos é praticamente idêntico, pois o conjunto de dados cabe confortavelmente nos caches L1/L2 da CPU.
 -   **O Ponto de Inflexão (N ≈ 512):** Quando o tamanho da matriz começa a saturar a capacidade do cache L2, o método de acesso por colunas (cache-unfriendly) torna-se significativamente mais lento.
