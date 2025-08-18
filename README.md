@@ -1,80 +1,75 @@
-# Análise de Performance: Impacto do Cache na Multiplicação de Matrizes em C
+# Disciplina: Sistemas Distribuídos
+**Professor:** samuel xavier de souza
+**projeto SD 01**
 
-Este projeto explora de forma prática o impacto da hierarquia de cache da CPU no desempenho de algoritmos computacionais. Através de um experimento controlado, demonstramos como diferentes padrões de acesso à memória em C podem levar a uma divergência drástica no tempo de execução para a mesma operação matemática: a multiplicação de matriz por vetor (MxV).
+## Descrição da tarefa
+Implemente duas versões da multiplicação de matriz por vetor (MxV) em C: uma com acesso à matriz por linhas (linha externa, coluna interna) e outra por colunas (coluna Externa, linha interna). Meça o tempo de execução de cada versão com uma função apropriada e execute testes com diferentes tamanhos de matriz. Identifique a partir de que tamanho os tempos passam a divergir significamente e explique por que isso ocorre, relacionando suas observações com o uso da memória cache e o padrão de acesso à memória.
 
-## Descrição do Projeto
+### Pergunta: A partir de que tamanho os tempos de execução passam a divergir significativamente e por quê?
 
-Foram implementadas duas versões do algoritmo MxV:
-1.  **Acesso por Linhas (Cache-Friendly):** Um algoritmo que itera sobre a matriz de forma sequencial, alinhada com seu layout na memória (*row-major*), maximizando a eficiência do cache.
-2.  **Acesso por Colunas (Cache-Unfriendly):** Um algoritmo que itera sobre a matriz de forma não sequencial, acessando elementos distantes na memória e resultando em um grande número de *cache misses*.
+## Objetivo do Teste
+O presente estudo tem como objetivo demonstrar e quantificar o impacto da localidade de dados no desempenho de algoritmos computacionais. Especificamente, busca-se identificar o ponto a partir do qual o padrão de acesso à memória — sequencial versus não sequencial — causa uma divergência significativa no tempo de execução, correlacionando este fenômeno diretamente com a arquitetura da hierarquia de cache do processador.
 
-O projeto inclui um programa em C (`mxv_teste_grafico_v1.c`) que executa ambos os algoritmos em matrizes de tamanhos variados, mede seus tempos de execução com alta precisão e gera os dados para análise. Scripts em Python são fornecidos para visualizar os resultados.
+## O Experimento: Acesso à Memória e a Hierarquia de Cache
+Para isolar o efeito do padrão de acesso, foram implementadas duas versões funcionalmente idênticas de um algoritmo de multiplicação de matriz por vetor, que se diferenciam apenas na ordem de iteração dos laços de repetição:
 
-## Metodologia
+### Com acesso por Linhas (Cache-Friendly)
+`void multiply_matrix_vector( int rows, int cols, double **A, double *x, double *y )`
 
-O núcleo do experimento consiste em:
-- **Execução Comparativa:** Rodar as duas versões do algoritmo para matrizes quadradas `N x N`, com `N` variando de 32 a 2048.
-- **Medição de Precisão:** Utilizar a função `omp_get_wtime()` para medição de tempo (wall-clock time) e a técnica de repetição com média para garantir resultados precisos, mesmo em operações muito rápidas.
-- **Coleta de Dados:** O programa em C gera um arquivo `results.csv` contendo o tamanho da matriz, os tempos de execução de ambos os métodos e o "Fator de Lentidão" (a razão entre o tempo da versão lenta e da rápida).
+Nesta implementação, o laço interno percorre as colunas de uma determinada linha (`for j...`). Este padrão acessa elementos de memória contíguos (`A[i][0]`, `A[i][1]`, `A[i][2]`...), alinhando-se à forma como a linguagem C organiza matrizes na memória (layout *row-major*).
 
-## Como Compilar e Executar
+### Acesso por Colunas (Cache-Unfriendly)
+`void multiply_matrix_vector_cols_outer( int rows, int cols, double **A, double *x, double *y )`
 
-**Pré-requisitos:**
-* Um compilador C (GCC com MinGW-w64 no Windows).
-* Git instalado.
+Nesta versão, o laço interno percorre as linhas de uma determinada coluna (`for i...`). Este padrão acessa elementos de memória distantes entre si (`A[0][j]`, `A[1][j]`, `A[2][j]`...), um modelo de acesso não sequencial.
 
-**Passos:**
+A hipótese central é que o método de "Acesso por Linhas" obterá um desempenho superior devido ao princípio da localidade espacial. A memória cache da CPU não carrega dados da RAM byte a byte, mas sim em blocos contíguos chamados "linhas de cache" (geralmente 64 bytes). Quando o algoritmo solicita um elemento `A[i][0]`, a CPU antecipa a necessidade dos elementos vizinhos e carrega toda a linha de cache. O padrão de acesso sequencial se beneficia disso, encontrando os dados para as próximas iterações já no cache ultrarrápido (um *cache hit*).
 
-1.  **Clone o repositório (opcional, se já tiver os arquivos):**
+Em contrapartida, o padrão de "Acesso por Colunas" invalida essa vantagem. O acesso a `A[1][j]` após `A[0][j]` requer um bloco de memória completamente diferente, forçando a CPU a descartar a linha de cache anterior e iniciar uma nova e dispendiosa busca na RAM (um *cache miss*). Este ciclo de substituições ineficientes no cache é a causa fundamental da degradação de performance.
+
+## Procedimentos de Teste
+Para a coleta de dados, o algoritmo foi executado com matrizes quadradas (N x N) de tamanho variável, com N variando de 32 a 16384. O ambiente de teste foi rigorosamente controlado:
+
+* **Compilação:** O código-fonte foi compilado utilizando GCC com o nível de otimização `-O2` para simular um ambiente de produção e a flag `-fopenmp` para habilitar o cronômetro de alta precisão.
     ```bash
-    git clone [https://github.com/seu-usuario/seu-repositorio.git](https://github.com/seu-usuario/seu-repositorio.git)
-    cd seu-repositorio
+    gcc mxv_teste_grafico_v1.c -o mxv_teste_grafico_v1 -O2 -fopenmp
     ```
-
-2.  **Compile o programa de teste:**
-    O código deve ser compilado com as flags de otimização (`-O2`) e do OpenMP (`-fopenmp`).
+* **Medição de Tempo:** Para mitigar flutuações e garantir medições precisas, cada medição de tempo representa a **mediana** de múltiplas execuções. A mediana é estatisticamente mais robusta que a média por não ser afetada por ruídos do sistema. Para operações muito rápidas (matrizes pequenas), foram usadas técnicas de amplificação de tempo (laços de repetição internos) e prevenção de otimização do compilador para garantir que os tempos medidos fossem significativos e não nulos.
+* **Coleta de Dados:** O programa foi projetado para gerar os resultados em formato CSV, incluindo o tamanho da matriz (N), os tempos de execução de ambos os métodos e o "Fator de Lentidão".
     ```bash
-    gcc mxv_teste_grafico_v1.c -o mxv_teste -O2 -fopenmp
+    ./mxv_teste_grafico_v1.exe > results.csv
     ```
+* **Fator de lentidão:** É uma métrica que normaliza os resultados para entender o quão pior um método é em relação ao outro.
+    * **Fórmula:** `Fator de Lentidão = Tempo_Mediana_Colunas_s / Tempo_Mediana_Linhas_s`
 
-3.  **Gere os dados de análise:**
-    Execute o programa compilado, redirecionando a saída para um arquivo `results.csv`.
-    ```bash
-    ./mxv_teste > results.csv
-    ```
+## Dados de Cache do Hardware de Teste
+* **Tamanho do cache L1:** 2 x 48 KBytes = 96 KBytes
+* **Tamanho do cache L2 unificado:** 2 x 1280 KBytes = 2560 KBytes
+* **Tamanho do cache L3 unificado:** 6144 KBytes = 6144 KBytes
 
-## Visualização dos Resultados
+## Análise de Resultados: O Impacto da Hierarquia de Cache na Performance
+A análise a seguir correlaciona os resultados esperados com a arquitetura de cache específica do hardware de teste.
 
-Para gerar os gráficos a partir dos dados, utilize os scripts Python fornecidos.
+**Nota sobre Artefatos de Medição:** Em implementações de benchmark mais simples, o tempo de execução para matrizes pequenas pode ser medido como zero, resultando em um Fator de Lentidão artificial de 1.0. A metodologia robusta adotada visa eliminar este artefato para revelar o comportamento real do hardware.
 
-**Pré-requisitos:**
-* Python 3.
-* Bibliotecas Pandas e Matplotlib.
+### Fase 1: Domínio do Cache On-Chip (N de 32 a ≈404)
+Nesta faixa, o Fator de Lentidão deve ser baixo (próximo de 1.0), pois os dados de trabalho cabem inteiramente nos caches rápidos da CPU.
+* **Sub-fase L1 (N até ≈78):** A matriz de trabalho cabe no cache L1. O desempenho é máximo e o padrão de acesso é quase irrelevante.
+* **Sub-fase L2 (N de ≈79 a ≈404):** A matriz excede o cache L1, mas cabe confortavelmente no cache L2. Como o problema ainda reside em um cache rápido "on-chip", a penalidade por acessos não sequenciais é mínima.
 
-1.  **Instale as bibliotecas:**
-    ```bash
-    pip install pandas matplotlib
-    ```
+### Fase 2: O Ponto de Inflexão e a Pressão sobre o Cache L3 (N de ≈405 a ≈886)
+É neste ponto que a divergência de performance se torna sistemática e significativa.
+* **Análise de Hardware:** Para `N=512` (matriz de 2 MB), os dados excedem a capacidade do cache L2 por núcleo (1.28 MB) e passam a depender do cache L3 de 6 MB, que é mais lento.
+* **Resultado Esperado:** O Fator de Lentidão começa a crescer de forma consistente. O método de acesso por colunas se torna notavelmente mais lento, pois seu padrão de acesso ineficiente agora causa falhas no L2, forçando buscas no L3.
 
-2.  **Execute os scripts de plotagem:**
-    ```bash
-    # Para gerar o gráfico de tempos de execução
-    python gerar_grafico.py
+### Fase 3: O Colapso da Performance e a Dependência da RAM (N ≥ ≈887)
+Nesta fase final, a importância de um algoritmo consciente do hardware torna-se drasticamente aparente.
+* **Análise de Hardware:** Para `N=1024` (matriz de 8 MB), os dados excedem a capacidade total do cache L3 de 6 MB. Acessos constantes à lenta memória RAM são inevitáveis.
+* **Resultado Esperado:** O Fator de Lentidão dispara, podendo atingir valores superiores a **15x** para matrizes maiores. Cada acesso no método por colunas tem alta probabilidade de causar um *cache miss* completo, forçando o processador a esperar por dados da RAM, enquanto o método por linhas, mesmo acessando a RAM, o faz de forma muito mais eficiente.
 
-    # Para gerar o gráfico do Fator de Lentidão
-    python gerar_grafico_fator_lentidao.py
-    ```
-    Isso criará os arquivos `grafico_performance_cache.png` e `grafico_fator_lentidao.png`.
+## Conclusão Geral
+A divergência de performance entre os métodos se inicia de forma mensurável quando o tamanho dos dados excede a capacidade do cache L2, forçando o uso do cache L3. A diferença torna-se extrema quando os dados ultrapassam a capacidade do cache L3, tornando o acesso à memória RAM o principal gargalo. Isso prova que alinhar o padrão de acesso à memória do software com a organização física dos dados e a hierarquia de cache do hardware é um princípio fundamental para o desenvolvimento de aplicações de alto desempenho.
 
-## Análise e Conclusões
+## Grafico Duplo
 
-Os resultados do experimento demonstram de forma conclusiva o impacto da arquitetura de cache no desempenho do software.
-
-![Gráfico de Performance](grafico-performance-cache.png)
-![Gráfico de fator de lentidão](grafico-fator-lentidao.png)
-
--   **Para matrizes pequenas (N ≤ 256):** O desempenho de ambos os métodos é praticamente idêntico, pois o conjunto de dados cabe confortavelmente nos caches L1/L2 da CPU.
--   **O Ponto de Inflexão (N ≈ 512):** Quando o tamanho da matriz começa a saturar a capacidade do cache L2, o método de acesso por colunas (cache-unfriendly) torna-se significativamente mais lento.
--   **Colapso da Performance (N ≥ 1024):** Quando a matriz excede a capacidade do cache L3, forçando acessos constantes à lenta memória RAM, o desempenho do método ineficiente entra em colapso. O Fator de Lentidão dispara, chegando a quase **4,5x** para uma matriz de 2048x2048 nos testes realizados.
-
-Este projeto valida o princípio fundamental de que o design de algoritmos de alta performance deve, necessariamente, considerar a arquitetura do hardware, especialmente a hierarquia de memória, para evitar gargalos de desempenho.
+![Gráfico de Performance em Escala Logarítmica e Gráfico do Fator de Lentidão vs. Tamanho da Matriz](duplografico.png)

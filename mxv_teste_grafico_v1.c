@@ -3,21 +3,13 @@
 #include <stdlib.h> 
 #include <time.h>  
 
-// As funções de impressão 
-void print_matrix(int rows, int cols, double **matrix) {
-    for (int i = 0; i < rows; i++) {
-        printf("| ");
-        for (int j = 0; j < cols; j++) {
-            printf("%8.2f ", matrix[i][j]);
-        }
-        printf("|\n");
-    }
-}
-
-void print_vector(int size, double *vector) {
-    for (int i = 0; i < size; i++) {
-        printf("| %8.2f |\n", vector[i]);
-    }
+// Função de comparação para usar com qsort em um array de doubles.
+int compare_doubles(const void *a, const void *b) {
+    double da = *(const double *)a;
+    double db = *(const double *)b;
+    if (da > db) return 1;
+    if (da < db) return -1;
+    return 0;
 }
 
 //Aloca dinamicamente uma matriz 2D.
@@ -92,18 +84,16 @@ void multiply_matrix_vector_cols_outer(int rows, int cols, double **A, double *x
     }
 }
 
-// --- Função Principal para o Experimento Final ---
 int main() {
     int n_inicial = 32;
     int n_final = 16384;
     int n_passo = 2;
 
-    double start_time, end_time;
-    double tempo_linhas, tempo_colunas;
+    double tempo_mediana_linhas, tempo_mediana_colunas;
     double fator_lentidao; 
 
-    // 2. Cabeçalho do CSV
-    printf("Tamanho_N,Tempo_Linhas_s,Tempo_Colunas_s,Fator_Lentidao\n");
+    // Cabeçalho do CSV
+    printf("Tamanho_N,Tempo_Mediana_Linhas_s,Tempo_Mediana_Colunas_s,Fator_Lentidao\n");
 
     for (int N = n_inicial; N <= n_final; N *= n_passo) {
         
@@ -117,44 +107,65 @@ int main() {
             fprintf(stderr, "Falha ao alocar para N=%d\n", N);
             continue;
         }
-        // Inicialização de dados na matriz e no vetor
 
         fill_random_data(M, N, A, x);
         
-        int repeticoes = 1000;
-        if (N >= 512) repeticoes = 50;
-        if (N >= 1024) repeticoes = 10;
-        if (N >= 2048) repeticoes = 3;
+        int repeticoes = 1001;
+        if (N >= 512) repeticoes = 51;
+        if (N >= 1024) repeticoes = 11;
+        if (N >= 2048) repeticoes = 5;
         
-        // Teste 1: Acesso por Linhas
-        start_time = omp_get_wtime();
+        //Alocar arrays para armazenar os tempos de cada repetição ---
+        double *tempos_linhas = (double *)malloc(repeticoes * sizeof(double));
+        double *tempos_colunas = (double *)malloc(repeticoes * sizeof(double));
+        if (tempos_linhas == NULL || tempos_colunas == NULL) {
+             fprintf(stderr, "Falha ao alocar arrays de tempo para N=%d\n", N);
+             free_matrix(M, A); free(x); free(y);
+             continue;
+        }
+
+        // Teste 1: Acesso por Linhas (Coletando tempos individuais)
         for(int r = 0; r < repeticoes; r++) {
+            double start_time = omp_get_wtime();
             multiply_matrix_vector(M, N, A, x, y);
+            double end_time = omp_get_wtime();
+            tempos_linhas[r] = end_time - start_time;
         }
-        end_time = omp_get_wtime();
-        tempo_linhas = (end_time - start_time) / repeticoes;
 
-        // Teste 2: Acesso por Colunas
-        start_time = omp_get_wtime();
+        // Teste 2: Acesso por Colunas (Coletando tempos individuais)
         for(int r = 0; r < repeticoes; r++) {
+            double start_time = omp_get_wtime();
             multiply_matrix_vector_cols_outer(M, N, A, x, y);
+            double end_time = omp_get_wtime();
+            tempos_colunas[r] = end_time - start_time;
         }
-        end_time = omp_get_wtime();
-        tempo_colunas = (end_time - start_time) / repeticoes;
+ 
+        // Ordena os tempos do acesso por linhas
+        qsort(tempos_linhas, repeticoes, sizeof(double), compare_doubles);
+        
+        // Ordena os tempos do acesso por colunas
+        qsort(tempos_colunas, repeticoes, sizeof(double), compare_doubles);
 
-        // 3. Calcula o fator de lentidão
-        if (tempo_linhas > 0) {
-            fator_lentidao = tempo_colunas / tempo_linhas;
+        // Calcula a mediana (pegando o elemento do meio do array ordenado)
+        tempo_mediana_linhas = tempos_linhas[repeticoes / 2];
+        tempo_mediana_colunas = tempos_colunas[repeticoes / 2];
+
+        // Calcula o fator de lentidão
+        if (tempo_mediana_linhas > 0) {
+            fator_lentidao = tempo_mediana_colunas / tempo_mediana_linhas;
         } else {
-            fator_lentidao = 1.0; // Se o tempo base for 0, não há diferença
+            fator_lentidao = 1.0;
         }
 
-        // Imprime a linha de dados CSV, agora com 4 colunas
-        printf("%d,%.12f,%.12f,%.3f\n", N, tempo_linhas, tempo_colunas, fator_lentidao);
-
+        // Imprime a linha de dados CSV
+        printf("%d,%.12f,%.12f,%.3f\n", N, tempo_mediana_linhas, tempo_mediana_colunas, fator_lentidao);
+        
+        // --- MODIFICAÇÃO 3: Liberar a memória dos arrays de tempo ---
         free_matrix(M, A);
         free(x);
         free(y);
+        free(tempos_linhas);
+        free(tempos_colunas);
     }
 
     return 0;
