@@ -95,7 +95,7 @@ void multiply_matrix_vector_cols_outer(int rows, int cols, double **A, double *x
 // --- Função Principal para o Experimento Final ---
 int main() {
     int n_inicial = 32;
-    int n_final = 2048;
+    int n_final = 16384;
     int n_passo = 2;
 
     double start_time, end_time;
@@ -118,9 +118,9 @@ int main() {
             continue;
         }
         // Inicialização de dados na matriz e no vetor
-        for(int i=0; i<M; i++) for(int j=0; j<N; j++) A[i][j] = 1.0;
-        for(int i=0; i<N; i++) x[i] = 1.0;
 
+        fill_random_data(M, N, A, x);
+        
         int repeticoes = 1000;
         if (N >= 512) repeticoes = 50;
         if (N >= 1024) repeticoes = 10;
