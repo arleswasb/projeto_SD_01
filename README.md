@@ -72,4 +72,4 @@ A divergência de performance entre os métodos se inicia de forma mensurável q
 
 ## Grafico Duplo
 
-![Gráfico de Performance em Escala Logarítmica e Gráfico do Fator de Lentidão vs. Tamanho da Matriz](imagens graficos/duplografico.png)
+![Gráfico de Performance em Escala Logarítmica e Gráfico do Fator de Lentidão vs. Tamanho da Matriz](duplografico.png)
